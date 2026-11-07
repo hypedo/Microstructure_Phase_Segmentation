@@ -1,64 +1,131 @@
-# Phasera · Microstructure Phase Segmentation
+# Microstructure Phase Segmentation
 
-**KoMaP 2026 팀 프로젝트** · 고탄성 알루미늄 합금의 광학현미경 영상을 **Al, Primary Si, Al₃Ni, Eutectic Si** 네 상으로 픽셀 단위 분할합니다. 미세한 공정 Si 경계를 보존하면서 영상 전체의 조직 문맥을 반영하기 위해 원본 해상도 분할 모델과 동결 DINOv2 특징을 결합했습니다.
+### Native-resolution features and composition-conditioned decision calibration
 
-[모델링 요약](docs/modeling-summary.md) · [평가 코드](code/evaluate.py) · [검증 결과](results/oct09_final_results.json) · [예측 마스크](results/validation_predictions/)
+고탄성 알루미늄 합금의 광학현미경 영상을 **Al · Primary Si · Al₃Ni · Eutectic Si**의 네 상으로 분할하는 개인 연구 프로젝트입니다. 미세조직의 크기 차이와 영상별 상 분포 변화를 함께 다루기 위해 국소·전역 특징 결합, 확률 앙상블, 조성 조건부 보정 및 상별 선택적 정제를 구성했습니다.
 
-| 개발 검증 IoU | 보정 단계 그룹 교차검증 | 최종 앙상블 |
-| ---: | ---: | --- |
-| **81.0665%** | 80.6410% | 체크포인트 9개 · 추론 경로 15개 |
+[연구 보고서 PDF](docs/Microstructure_Phase_Segmentation.pdf) · [평가 코드](code/evaluate.py) · [검증 통계](results/validation_statistics.json)
 
-![Phasera 모델 구조와 추론 흐름](docs/figures/architecture.png)
+| 연구 대상 | 개발 검증 IoU | 보정 단계 그룹 교차검증 | 최종 구성 |
+|---|---:|---:|---|
+| 알루미늄 합금의 4상 분할 | **81.0665%** | **80.6410%** | 9 checkpoints / 15 inference routes |
 
-## 데이터와 설계
+> 검증 영상 20장을 모델 및 보정 설정 선택에 반복 사용했습니다. 81.0665%는 개발 검증 점수이며 독립 test 성능이 아닙니다. 그룹 교차검증은 보정 단계에 한정하며, 전체 파이프라인의 독립 nested CV와 구분합니다.
 
-대회에서 제공한 현미경 영상과 픽셀 라벨을 사용했습니다. 학습에는 70장, 개발 검증에는 20장을 사용했으며, 테스트 영상 10장은 마스크 생성에 사용했습니다. 개발 검증 세트에서 공정 Si는 전체 정답 픽셀의 7.66%를 차지했습니다. 가는 공정 Si 구조를 보존하려면 원본 해상도의 특징이 필요했고, 영상마다 상의 면적분율이 달라 예측 분포에 따른 보정을 적용했습니다.
+## 연구 질문
 
-## 방법
+미세 공정 Si는 가는 망상 구조로 나타나는 반면, 초정 Si는 상대적으로 큰 각형 입자로 관찰됩니다. 단일 축소 해상도만으로 학습하면 얇은 구조가 사라질 수 있고, 국소 패치만 보면 주변 조직의 문맥을 잃을 수 있습니다. 또한 영상별 상 비율이 달라지면 고정된 class bias가 서로 다른 영상에 같은 방식으로 작용합니다.
 
-1. **원본 해상도와 전역 문맥 결합.** Native U-Net의 skip 연결로 세부 경계를 전달하고, 전체 영상의 동결 DINOv2 특징을 1×1 투영으로 변환해 bottleneck에 더합니다.
-2. **확률 앙상블.** 체크포인트 9개를 서로 다른 스케일과 TTA 설정으로 실행하고, 15개 경로의 확률을 원본 좌표계로 복원해 결합합니다.
-3. **조성 조건부 보정.** 영상별 예측 확률의 공간 평균에서 얻은 상별 분포로 9계수 log-offset을 계산합니다.
-4. **선택적 성분 정제.** 영상 테두리에 닿지 않는 128픽셀 이하의 Primary Si 연결 성분을 다른 세 상 중 보정 점수가 가장 높은 상으로 재할당합니다.
+본 프로젝트는 **공간 세부와 전체 시야 문맥을 함께 표현하면서, 예측 조직 분포에 따라 네 상의 결정 경계를 조절할 수 있는가**를 탐구합니다.
 
-## 검증 결과
+## 데이터 분석과 설계 근거
 
-각 영상에서 정답에 존재하는 상의 IoU를 평균한 뒤, 영상 20장의 점수를 동일 가중 평균했습니다.
+외부 제공 광학현미경 영상과 픽셀 라벨을 사용했습니다. 신경망 학습에는 70장, 개발 검증에는 20장을 사용했으며, 원본 데이터와 정답 마스크는 저장소에 배포하지 않습니다. 원본 데이터는 자체 수집 자료로 주장하지 않습니다.
+
+| 관찰 | 측정값 및 해석 | 설계 반영 |
+|---|---|---|
+| 공정 Si의 높은 경계 비중 | 경계 1 px 이내 픽셀: train 63.16%, valid 63.59% | 원본 해상도 특징과 skip 연결 |
+| 영상별 상 분포 변화 | Al₃Ni 이미지 평균 면적분율: train 25.14%, valid 20.03% | 예측 상 질량 기반 조건부 보정 |
+| 상 부재 | Primary Si가 train·valid 각각 1장에 부재 | 정답 존재 상만 포함한 이미지별 평가 |
+| 서로 다른 공간 크기 | 폭 675–1,440 px, 높이 480–1,024 px | 원본 좌표 복원 후 확률 결합 |
+
+![상 분포](docs/figures/phase_distribution.png)
+
+면적분율은 이미지별 비율을 평균한 값입니다. 전체 픽셀 합산 비율과 다르며, 픽셀 해상도만으로 물리 배율을 동일하다고 가정하지 않습니다.
+
+![미세조직 및 국소 영역](docs/figures/morphology.png)
+
+## 방법론
+
+![전체 추론 구조와 문맥 결합](docs/figures/architecture_v2.png)
+
+### 1. 원본 해상도 특징과 동결 시각 문맥의 결합
+
+Native U-Net은 원본 영상의 미세 구조를 추출합니다. 대표 Native64 경로의 인코더 채널은 `64 → 128 → 256 → 512 → 768`이며, 네 단계 디코더와 skip 연결을 사용합니다.
+
+전체 영상의 장축을 약 448 px, 14의 배수로 맞춰 얻은 **동결 DINOv2 ViT-B/14** 특징을 학습 가능한 `1×1 projection`으로 투영하고 bottleneck 공간 크기로 보간해 합산합니다. Projection은 0으로 초기화하여 기존 국소 경로의 초기 출력을 보존합니다. 원본 해상도에서 경계 정보를 전달하는 경로와 전역 문맥 경로가 서로 다른 공간 범위를 담당합니다.
+
+### 2. 상보적 확률 결합
+
+9개 고유 checkpoint를 15개의 스케일·TTA 경로로 실행합니다. Native U-Net, DINOv2 문맥 경로 및 ResNet101 scSE·MiT·DINO 계열의 예측을 원본 좌표로 역변환한 후 FP32 확률 공간에서 결합합니다. 같은 checkpoint의 다른 추론 설정을 별개의 학습 모델로 세지 않습니다.
+
+44개 후보에 대한 가중치 재탐색에서는 기존 가중치를 대체할 검증된 개선을 얻지 못했습니다. 최종 개선은 아래의 조건부 보정과 선택적 정제에서 발생했습니다.
+
+### 3. 조성 조건부 결정 경계
+
+앙상블 확률 `q`의 공간 평균을 예측 상 질량 `m`으로 정의합니다. Al₃Ni와 공정 Si의 상대 질량 `r`, 초정 Si의 로그 질량 `h`를 계산하여 `f = [1, r, h]`로 구성합니다.
+
+![조건부 확률 보정식](docs/figures/calibration_formula.png)
+
+Al을 기준 편향 0으로 두고, 다른 세 상의 log 확률에 각 3계수 보정항을 더합니다. **총 9개 계수**로 영상별 조직 문맥에 따라 결정 경계를 조절합니다. 이 문맥은 현재 영상의 예측에서만 얻으며, 정답 상 존재 여부·파일명·영상 ID를 입력 특징으로 사용하지 않습니다. 예측 질량은 화학 조성의 실측값이 아닙니다.
+
+### 4. 상별 선택적 형상 정제
+
+Primary Si의 8-연결 성분이 128 px 이하이고 영상 테두리에 닿지 않을 때만, 해당 픽셀을 나머지 세 상 중 보정 점수가 가장 높은 상으로 재할당합니다. Eutectic Si의 가는 구조에는 같은 제거 규칙을 적용하지 않습니다. 이 임계값은 현재 데이터에서 선택한 픽셀 기준 경험값입니다.
+
+## 평가 목적과 결과
+
+![평가식](docs/figures/metric_formula.png)
+
+이미지마다 **정답에 존재하는 상의 IoU만 평균**한 뒤 이미지별 점수를 동일 가중 평균합니다. 정답에 없는 상은 클래스 평균에서 제외하지만, 그 상으로 잘못 예측한 픽셀은 실제 정답 상의 FN에 남습니다.
 
 | 구성 | 개발 검증 IoU |
-| --- | ---: |
+|---|---:|
 | 기본 앙상블 | 80.5277% |
-| 조성 조건부 보정 및 선택적 정제 | **81.0665%** |
+| 조성 조건부 보정 | 81.0151% |
+| 조건부 보정 + 선택적 정제 | **81.0665%** |
+| 보정 단계 그룹 교차검증 | 80.6410% |
 
-개발 검증 영상은 체크포인트·앙상블·보정 설정을 고르는 데 반복 사용했습니다. **81.0665%는 개발 검증 결과**이며, 80.6410%의 그룹 교차검증은 보정 단계에 한정됩니다.
+![성능 비교](docs/figures/performance.png)
 
-## 저장소 구성
+최종 개선은 **+0.5388%p**입니다. 캐시 기준 20장 중 13장은 개선되고 7장은 악화되었습니다. 일부 조직에서 개선이 집중되므로 평균 증가를 모든 영상의 일관된 개선으로 해석하지 않습니다.
 
-| 경로 | 내용 |
-| --- | --- |
-| [code/src/](code/src/) | 모델 구조, 학습 및 손실 함수 |
-| [code/experiments/](code/experiments/) | 전역 문맥 결합, 학습 및 보정 비교 실험 |
-| [code/inference/](code/inference/) | 추론, 조건부 보정, 연결 성분 정제 |
-| [results/](results/) | 검증 통계와 검증 예측 PNG 20장 |
-| [docs/](docs/) | 모델링 요약 및 구조도 |
-| [third_party/](third_party/) | 외부 구성요소 출처와 고지 |
+추가 학습에서는 이미지별·정답 존재 상별 집계를 유지한 `0.8 × soft-IoU loss + 0.2 × CE`를 비교했습니다. control / aligned / mixed의 세 실험 모두 시작 step 0이 선택되었으며 새 가중치를 최종 모델에 추가하지 않았습니다.
 
-## 평가와 추론
+![예측 및 오류 픽셀](docs/figures/qualitative.png)
 
-제출 환경은 Linux x86_64, Python 3.12.3, PyTorch 2.8.0, CUDA 12.8입니다. 검증 점수를 다시 계산하려면 대회 제공 정답 마스크가 필요합니다. 평가 스크립트만 사용할 때는 NumPy와 Pillow를 설치하면 됩니다.
+공정 Si의 가는 경계와 인접 상 간 혼동이 주요 잔여 오차입니다. 상별 진단 IoU는 Al 94.4574%, Primary Si 91.5439%, Al₃Ni 77.2207%, Eutectic Si 62.3868%입니다. Primary Si의 분모는 19장이므로 이 네 수치의 단순 평균은 전체 평가 점수가 아닙니다.
 
-```bash
-python -m pip install numpy pillow
-python code/evaluate.py --predictions results/validation_predictions --masks /path/to/valid/masks --output validation.json
-```
+## 알고리즘적 기여
 
-전체 GPU 추론에는 별도 제출된 호환 가중치 번들이 필요합니다. 번들의 `model_bundle/` 폴더를 저장소 최상위에 배치한 뒤 실행합니다.
+- **국소·전역 표현 결합:** 미세 경계 특징에 넓은 시야의 시각 문맥을 투영해 조직의 서로 다른 공간 범위를 함께 처리합니다.
+- **조직 문맥에 따른 확률 보정:** 예측 상 질량의 연속 특징으로 상별 결정 경계를 조절하는 저차원 조건부 모델을 구성합니다.
+- **상별 형상 차이를 반영한 정제:** 큰 입자와 얇은 망상 구조에 서로 다른 제거 규칙을 적용합니다.
+
+이 기여는 기존 분할 구조와 시각 표현을 미세조직 문제에 맞게 구성한 알고리즘 설계입니다. 개별 backbone의 원천 발명이나 보편적인 성능 우위를 주장하지 않습니다.
+
+## 코드와 실험 사용법
 
 ```bash
 conda env create -f environment.yml
-conda activate komap-oct09
-python run_phasera.py validate
-python run_phasera.py predict --input /path/to/images --output /path/to/new_output
+conda activate microstructure-research
+python code/evaluate.py \
+  --predictions results/validation_predictions \
+  --masks /path/to/valid/masks \
+  --output validation.json
+python code/report_figures.py
+python code/report_architecture.py --output docs/figures
 ```
 
-공개용 패키지에는 원본 대회 데이터, 정답 마스크, 테스트 제출 마스크, 가중치, 제출 실행 번들이 포함되어 있지 않습니다. 가중치 파일명과 SHA-256은 [가중치 목록](WEIGHTS_FILES.csv)에서 확인할 수 있습니다.
+| 위치 | 내용 |
+|---|---|
+| `code/src/` | 원본 해상도 분할 및 실험 모델 |
+| `code/experiments/context/` | 동결 문맥 결합 모델 |
+| `code/experiments/calibration/` | 평가 정렬 손실 및 조건부 보정 실험 |
+| `code/inference/postprocess.py` | 조성 조건부 보정과 연결 성분 정제 |
+| `code/evaluate.py` | GT-present image-macro IoU |
+| `results/` | 개발 검증 예측과 상별·영상별 통계 |
+| `docs/` | 연구 보고서 PDF와 그림 |
+| `third_party/` | 외부 구성요소의 고지 |
+
+원본 데이터, 학습 checkpoint 및 대용량 실행 번들은 이 저장소에서 배포하지 않습니다. 평가에는 별도의 정답 마스크가 필요하고, 전체 추론에는 코드와 호환되는 모델 번들이 필요합니다. 실험 폴더에는 최종 구성에 채택되지 않은 비교 실험도 포함됩니다.
+
+## 연구 범위와 확장 방향
+
+상 면적분율과 입자 형상 지표는 조성·공정–조직–물성 분석의 입력으로 확장할 수 있습니다. 다만 2차원 면적분율을 체적분율로 해석하려면 대표 절단면과 입체계량 가정이 필요하며, 물리 길이는 화소 크기 보정이 필요합니다. 외부 시편·배율·장비를 분리한 평가, 경계 오차 분석 및 계산량 축소를 다음 검증 축으로 설정합니다. 현재 결과는 물성 예측력이나 실제 분석 시간 단축을 입증하지 않습니다.
+
+## 학술적 배경
+
+[U-Net](https://arxiv.org/abs/1505.04597) · [DINOv2](https://arxiv.org/abs/2304.07193) · [Logit adjustment](https://arxiv.org/abs/2007.07314) · [Lovász-Softmax](https://arxiv.org/abs/1705.08790)
+
+학술적 배경과 실제 구현 범위는 보고서에서 구분합니다. 라이선스·저작권 고지는 별도로 유지합니다.
