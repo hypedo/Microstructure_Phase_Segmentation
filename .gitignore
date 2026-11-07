@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+data/
+DATA/
+model_bundle/
+runs/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+validation.json
