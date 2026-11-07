@@ -1,0 +1,109 @@
+{
+  "access_date": "2026-10-14",
+  "references": [
+    {
+      "report_number": 1,
+      "title": "KoMaP competition data and submission rules",
+      "urls": [
+        "https://komap.ai/front/competition2026/process1",
+        "https://komap.ai/front/competition2026/apply_info#none"
+      ]
+    },
+    {
+      "report_number": 2,
+      "title": "KIMS high-modulus aluminum alloy disclosure",
+      "urls": [
+        "https://patents.google.com/patent/KR20250000373A/ko"
+      ]
+    },
+    {
+      "report_number": 3,
+      "title": "U-Net",
+      "urls": [
+        "https://arxiv.org/abs/1505.04597"
+      ]
+    },
+    {
+      "report_number": 4,
+      "title": "DINOv2",
+      "urls": [
+        "https://arxiv.org/abs/2304.07193"
+      ]
+    },
+    {
+      "report_number": 5,
+      "title": "Long-tail learning via logit adjustment",
+      "urls": [
+        "https://arxiv.org/abs/2007.07314"
+      ]
+    },
+    {
+      "report_number": 6,
+      "title": "Semi-Supervised Segmentation Framework for Quantitative Analysis of Material Microstructure Images",
+      "urls": [
+        "https://www.techscience.com/cmc/v87n1/66100",
+        "https://doi.org/10.32604/cmc.2026.074681"
+      ]
+    },
+    {
+      "report_number": 7,
+      "title": "Lovasz-Softmax loss",
+      "urls": [
+        "https://arxiv.org/abs/1705.08790"
+      ]
+    },
+    {
+      "report_number": 8,
+      "title": "Patch-sampled contrastive learning for dense prediction pretraining in metallographic images",
+      "urls": [
+        "https://www.nature.com/articles/s41598-025-32855-5"
+      ]
+    },
+    {
+      "report_number": 9,
+      "title": "SAM-I-Am",
+      "urls": [
+        "https://www.pnnl.gov/publications/sam-i-am-semantic-boosting-zero-shot-atomic-scale-electron-micrograph-segmentation",
+        "https://doi.org/10.1016/j.commatsci.2024.113400"
+      ]
+    },
+    {
+      "report_number": 10,
+      "title": "KIMS materials data and analysis research",
+      "urls": [
+        "https://www.kims.re.kr/v17/bbx/content.php?co_id=02_07",
+        "https://www.kims.re.kr/v17/bbx/content.php?co_id=02_07_03"
+      ]
+    },
+    {
+      "report_number": 11,
+      "title": "A Deep Dive into KoMaP for Accelerating AI-Based Material Development",
+      "urls": [
+        "https://d2j16w31g89z0j.cloudfront.net/site/ictc2025/abs/P03-2.pdf"
+      ]
+    },
+    {
+      "report_number": 12,
+      "title": "ETRI researcher publications: KoMaP active learning and materials AutoML",
+      "urls": [
+        "https://ksp.etri.re.kr/ksp/user/40165246-a9cd-42de-984f-e83aad53798e"
+      ]
+    },
+    {
+      "report_number": 13,
+      "title": "clDice - A Novel Topology-Preserving Loss Function for Tubular Structure Segmentation",
+      "urls": [
+        "https://arxiv.org/abs/2003.07311",
+        "https://openaccess.thecvf.com/content/CVPR2021/html/Shit_clDice_-_A_Novel_Topology-Preserving_Loss_Function_for_Tubular_Structure_CVPR_2021_paper.html"
+      ]
+    },
+    {
+      "report_number": 14,
+      "title": "Distilling the Knowledge in a Neural Network",
+      "urls": [
+        "https://arxiv.org/abs/1503.02531"
+      ]
+    }
+  ],
+  "scope": "References 6, 8, 9, 13, 14 inform related research and future algorithm extension plans."
+}
